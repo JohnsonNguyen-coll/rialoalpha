@@ -1,0 +1,49 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Strategy {
+  id           String   @id @default(uuid())
+  tokenSymbol  String
+  targetDrop   Float    // Target drop percentage from 24h high
+  amount       Float    // Amount in USDC to spend
+  status       String   @default("active") // active, triggered, completed, paused
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  trades       Trade[]
+  logs         Log[]
+}
+
+model Trade {
+  id             String   @id @default(uuid())
+  strategyId     String
+  strategy       Strategy @relation(fields: [strategyId], references: [id])
+  executionPrice Float
+  amountBought   Float
+  timestamp      DateTime @default(now())
+}
+
+model Log {
+  id         String   @id @default(uuid())
+  strategyId String?
+  strategy   Strategy? @relation(fields: [strategyId], references: [id])
+  message    String
+  type       String   @default("info") // info, warning, success, ai_thought
+  timestamp  DateTime @default(now())
+}
+
+model PriceData {
+  id          String   @id @default(uuid())
+  tokenSymbol String
+  price       Float
+  high24h     Float
+  low24h      Float
+  timestamp   DateTime @default(now())
+}
