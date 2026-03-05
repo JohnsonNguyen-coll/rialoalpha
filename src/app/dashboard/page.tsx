@@ -67,8 +67,9 @@ export default function Dashboard() {
             const rulesData = await rulesRes.json();
             const logsData = await logsRes.json();
 
-            setRules(rulesData);
-            setLogs(logsData.map((l: any) => ({
+            setRules(Array.isArray(rulesData) ? rulesData : []);
+            const logsArray = Array.isArray(logsData) ? logsData : [];
+            setLogs(logsArray.map((l: any) => ({
                 id: l.id,
                 time: new Date(l.timestamp).toLocaleTimeString(),
                 message: l.message,
@@ -378,7 +379,7 @@ export default function Dashboard() {
                                             Your Active Bots
                                         </h3>
                                         <div className="flex gap-2">
-                                            <div className="text-xs font-black text-[#10B981] bg-[#10B981]/10 px-4 py-2 rounded-xl border-[2px] border-[#10B981]">WORKING: {rules.filter(r => r.status === 'active').length}</div>
+                                            <div className="text-xs font-black text-[#10B981] bg-[#10B981]/10 px-4 py-2 rounded-xl border-[2px] border-[#10B981]">WORKING: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').length}</div>
                                         </div>
                                     </div>
                                     <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
@@ -391,7 +392,7 @@ export default function Dashboard() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y-[3px] divide-[#1a1a1a]/5">
-                                                {rules.filter(r => r.status === 'active').map((rule) => (
+                                                {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').map((rule) => (
                                                     <tr key={rule.id} className="group hover:bg-[#fff7ed] transition-all">
                                                         <td className="py-6 px-10">
                                                             <div className="flex flex-col">
@@ -414,7 +415,7 @@ export default function Dashboard() {
                                                         </td>
                                                     </tr>
                                                 ))}
-                                                {rules.filter(r => r.status === 'active').length === 0 && (
+                                                {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').length === 0 && (
                                                     <tr>
                                                         <td colSpan={3} className="py-20 text-center">
                                                             <div className="flex flex-col items-center gap-4">
@@ -499,8 +500,8 @@ export default function Dashboard() {
                                         Robot Army Barracks
                                     </h3>
                                     <div className="flex gap-4">
-                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Active: {rules.filter(r => r.status === 'active').length}</div>
-                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Done: {rules.filter(r => r.status === 'completed').length}</div>
+                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Active: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').length}</div>
+                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Done: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active' || r.status === 'completed').filter(r => r.status === 'completed').length}</div>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto custom-scrollbar">
@@ -564,7 +565,7 @@ export default function Dashboard() {
                             {[
                                 {
                                     title: "Available Candy",
-                                    amount: `$${(rules.filter(r => r.status === 'active').reduce((sum, r) => sum + Number(r.amount), 0)).toLocaleString()}`,
+                                    amount: `$${((Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').reduce((sum, r) => sum + Number(r.amount), 0)).toLocaleString()}`,
                                     unit: "ALREADY IN USE",
                                     color: "bg-[#FFD700]",
                                     icon: <Star className="w-8 h-8" />,

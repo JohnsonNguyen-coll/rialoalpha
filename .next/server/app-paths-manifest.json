@@ -1,8 +1,9 @@
 {
-  "/dashboard/page": "app/dashboard/page.js",
+  "/not-found": "app/not-found.js",
   "/icon.png/route": "app/icon.png/route.js",
   "/api/strategies/route": "app/api/strategies/route.js",
   "/api/logs/route": "app/api/logs/route.js",
   "/api/agent/tick/route": "app/api/agent/tick/route.js",
-  "/api/prices/[symbol]/route": "app/api/prices/[symbol]/route.js"
+  "/api/prices/[symbol]/route": "app/api/prices/[symbol]/route.js",
+  "/dashboard/page": "app/dashboard/page.js"
 }
