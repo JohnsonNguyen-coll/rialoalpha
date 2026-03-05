@@ -667,14 +667,11 @@ video {
 .z-\[101\] {
   z-index: 101;
 }
-.z-\[110\] {
-  z-index: 110;
+.z-\[120\] {
+  z-index: 120;
 }
 .z-\[99\] {
   z-index: 99;
-}
-.z-\[120\] {
-  z-index: 120;
 }
 .col-span-1 {
   grid-column: span 1 / span 1;
@@ -800,11 +797,11 @@ video {
 .max-h-\[1150px\] {
   max-height: 1150px;
 }
-.max-h-\[400px\] {
-  max-height: 400px;
-}
 .max-h-\[350px\] {
   max-height: 350px;
+}
+.max-h-\[400px\] {
+  max-height: 400px;
 }
 .min-h-screen {
   min-height: 100vh;
@@ -1864,6 +1861,11 @@ textarea:focus {
 .hover\:border-\[\#1a1a1a\]:hover {
   --tw-border-opacity: 1;
   border-color: rgb(26 26 26 / var(--tw-border-opacity, 1));
+}
+
+.hover\:bg-\[\#059669\]:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(5 150 105 / var(--tw-bg-opacity, 1));
 }
 
 .hover\:bg-\[\#8B5CF6\]\/5:hover {
