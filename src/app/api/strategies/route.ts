@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
+    console.log('ENV CHECK:', {
+        url: process.env.TURSO_DATABASE_URL ? 'FOUND' : 'MISSING',
+        token: process.env.TURSO_AUTH_TOKEN ? 'FOUND' : 'MISSING',
+    })
     try {
         const strategies = await prisma.strategy.findMany({
             include: {
