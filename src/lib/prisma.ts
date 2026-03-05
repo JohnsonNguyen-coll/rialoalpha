@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaLibSQL } from '@prisma/adapter-libsql'
+import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 import { createClient } from '@libsql/client'
 
@@ -14,7 +14,7 @@ const getAdapter = () => {
             url: process.env.DATABASE_URL!,
             authToken: process.env.DATABASE_AUTH_TOKEN,
         })
-        return new PrismaLibSQL(libsql)
+        return new PrismaLibSql(libsql as any)
     } else {
         // Sử dụng SQLite local khi phát triển
         const dbUrl = process.env.DATABASE_URL || 'file:./dev.db'
