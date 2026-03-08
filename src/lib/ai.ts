@@ -32,8 +32,9 @@ export async function getAIReasoning(input: MarketAnalysisInput): Promise<{ deci
     
     Output rules:
     - Return a short 'decision' (e.g., "EXECUTE", "WAIT", "MONITOR").
-    - Return a short 'advice' in Vietnamese explaining the logic (max 20 words).
-    - Keep it professional and concise.
+    - Return a short 'advice' in English explaining the logic (max 20 words).
+    - Use a friendly, professional, and slightly playful tone.
+    - Keep it concise.
 
     Format: JSON { "decision": "...", "advice": "..." }
     `;
@@ -42,9 +43,9 @@ export async function getAIReasoning(input: MarketAnalysisInput): Promise<{ deci
 
     if (isKeyInvalid) {
         if (input.dropPercentage >= input.targetDrop) {
-            return { decision: "EXECUTE", advice: "Đã đạt ngưỡng mục tiêu. AI xác nhận tín hiệu mua an toàn." };
+            return { decision: "EXECUTE", advice: "Target reached! The dip looks juicy, I'm executing the buy signal now." };
         }
-        return { decision: "MONITOR", advice: "Đang theo dõi biến động. Chưa có tín hiệu đột biến." };
+        return { decision: "MONITOR", advice: "Watching the waves. Price is still hovering, no major moves yet." };
     }
 
     // List of models to try in order of preference
@@ -80,16 +81,15 @@ export async function getAIReasoning(input: MarketAnalysisInput): Promise<{ deci
     }
 
     // FINAL FALLBACK: If all AI models fail, use rules-based logic
-    // This ensures the app "works" even if the Quota is 0
     if (input.dropPercentage >= input.targetDrop) {
         return {
             decision: "EXECUTE",
-            advice: "AI đang bận, đã chuyển sang Logic dự phòng: Giá đã chạm ngưỡng mục tiêu, kích hoạt mua."
+            advice: "AI is busy, but target reached! Moving to backup logic: executing buy signal."
         };
     }
 
     return {
         decision: "MONITOR",
-        advice: "AI đang bận, đang sử dụng Logic dự phòng để theo dõi giá (${input.dropPercentage.toFixed(1)}%)."
+        advice: "AI is resting, using backup logic to watch the price (${input.dropPercentage.toFixed(1)}%)."
     };
 }
