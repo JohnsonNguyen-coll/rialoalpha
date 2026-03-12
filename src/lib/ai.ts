@@ -9,6 +9,7 @@ async function getModel(modelName: string) {
 }
 
 export interface MarketAnalysisInput {
+    id: string;
     token: string;
     currentPrice: number;
     high24h: number;
@@ -16,39 +17,42 @@ export interface MarketAnalysisInput {
     targetDrop: number;
 }
 
-export async function getAIReasoning(input: MarketAnalysisInput): Promise<{ decision: string; advice: string }> {
+export interface AIAnalysisResult {
+    id: string;
+    decision: string;
+    advice: string;
+}
+
+export async function getAIReasoning(inputs: MarketAnalysisInput[]): Promise<AIAnalysisResult[]> {
+    if (inputs.length === 0) return [];
+
     const prompt = `
-    You are a professional crypto trading agent named Rialo.
-    Market Data:
-    - Asset: ${input.token}
-    - Current Price: $${input.currentPrice}
-    - 24h High: $${input.high24h}
-    - Current Drop: ${input.dropPercentage.toFixed(2)}%
-    - User's Target Trigger: ${input.targetDrop}%
+    You are Rialo, a professional crypto trading agent. 
+    Analyze the following market data for multiple assets and decide whether to execute simulated trades.
+    Even if targets are reached, look for "red flags" (e.g., drop too fast/deep).
 
-    Task:
-    Analyze if we should execute a simulated trade now. 
-    Even if the target is reached, look for "red flags" (like the drop being too fast or too deep).
-    
+    Assets to analyze:
+    ${inputs.map(input => `- [ID: ${input.id}] ${input.token}: Price $${input.currentPrice}, 24h High $${input.high24h}, Drop ${input.dropPercentage.toFixed(2)}%, Target -${input.targetDrop}%`).join('\n')}
+
     Output rules:
-    - Return a short 'decision' (e.g., "EXECUTE", "WAIT", "MONITOR").
-    - Return a short 'advice' in English explaining the logic (max 20 words).
-    - Use a friendly, professional, and slightly playful tone.
-    - Keep it concise.
+    - Return an ARRAY of JSON objects.
+    - Each object must have: "id" (the ID provided), "decision" ("EXECUTE", "WAIT", "MONITOR"), and "advice" (short English explanation, max 20 words, friendly/playful tone).
+    - Be concise and professional.
 
-    Format: JSON { "decision": "...", "advice": "..." }
+    Example Format: [ { "id": "...", "decision": "...", "advice": "..." }, ... ]
     `;
 
     const isKeyInvalid = !API_KEY || API_KEY === 'your_api_key_here';
 
     if (isKeyInvalid) {
-        if (input.dropPercentage >= input.targetDrop) {
-            return { decision: "EXECUTE", advice: "Target reached! The dip looks juicy, I'm executing the buy signal now." };
-        }
-        return { decision: "MONITOR", advice: "Watching the waves. Price is still hovering, no major moves yet." };
+        return inputs.map(input => {
+            if (input.dropPercentage >= input.targetDrop) {
+                return { id: input.id, decision: "EXECUTE", advice: "Target reached! The dip looks juicy, I'm executing the buy signal now." };
+            }
+            return { id: input.id, decision: "MONITOR", advice: "Watching the waves. Price is still hovering, no major moves yet." };
+        });
     }
 
-    // List of models to try in order of preference
     const modelsToTry = [
         "gemini-1.5-flash",
         "gemini-1.5-flash-latest",
@@ -64,32 +68,32 @@ export async function getAIReasoning(input: MarketAnalysisInput): Promise<{ deci
             const response = await result.response;
             const text = response.text();
 
-            const jsonMatch = text.match(/\{.*\}/s);
+            const jsonMatch = text.match(/\[.*\]/s);
             if (jsonMatch) {
-                return JSON.parse(jsonMatch[0]);
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (Array.isArray(parsed)) return parsed;
             }
         } catch (error: any) {
             const errorMsg = error?.message || String(error);
             const status = error?.status;
-
-            if (status === 429 || errorMsg.includes('429') || status === 404 || errorMsg.includes('404')) {
-                // Don't log too much, just try next
-                continue;
-            }
+            if (status === 429 || errorMsg.includes('429') || status === 404 || errorMsg.includes('404')) continue;
             console.error(`AI Error with ${modelId}:`, errorMsg);
         }
     }
 
-    // FINAL FALLBACK: If all AI models fail, use rules-based logic
-    if (input.dropPercentage >= input.targetDrop) {
+    // FINAL FALLBACK
+    return inputs.map(input => {
+        if (input.dropPercentage >= input.targetDrop) {
+            return {
+                id: input.id,
+                decision: "EXECUTE",
+                advice: "AI is busy, but target reached! Moving to backup logic: executing buy signal."
+            };
+        }
         return {
-            decision: "EXECUTE",
-            advice: "AI is busy, but target reached! Moving to backup logic: executing buy signal."
+            id: input.id,
+            decision: "MONITOR",
+            advice: `AI is resting, using backup logic to watch the price (${input.dropPercentage.toFixed(1)}%).`
         };
-    }
-
-    return {
-        decision: "MONITOR",
-        advice: "AI is resting, using backup logic to watch the price (${input.dropPercentage.toFixed(1)}%)."
-    };
+    });
 }

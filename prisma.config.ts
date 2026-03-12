@@ -11,6 +11,6 @@ export default {
     path: path.join('prisma', 'migrations'),
   },
   datasource: {
-    url: process.env.TURSO_DATABASE_URL,
+    url: process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL,
   }
 } satisfies PrismaConfig

@@ -49,6 +49,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [ticking, setTicking] = useState(false);
     const [prices, setPrices] = useState<any>({});
+    const [badges, setBadges] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState('terminal');
 
     // Form state
@@ -60,16 +61,24 @@ export default function Dashboard() {
 
     const tokens = ['SOL', 'ETH', 'BTC', 'BNB', 'ADA', 'DOT', 'LINK', 'POL', 'XRP', 'AVAX'];
 
+    const ALL_BADGES = [
+        { type: 'first_trade', name: 'First Mission Accomplished', description: 'You deployed your first robot and successfully bought the dip!', icon: <Star className="w-12 h-12 text-white fill-white" /> },
+        { type: 'treasure_hunter', name: 'Treasure Hunter', description: 'Patience is a virtue! You caught a massive dip of 10% or more.', icon: <Sparkles className="w-12 h-12 text-white fill-white" /> },
+        { type: 'diamond_hands', name: 'Diamond Hands', description: 'You held your position through the storm and came out stronger.', icon: <Heart className="w-12 h-12 text-white fill-white" /> },
+    ];
+
     const fetchData = async () => {
         try {
-            const [rulesRes, logsRes] = await Promise.all([
+            const [rulesRes, logsRes, badgesRes] = await Promise.all([
                 fetch('/api/strategies'),
-                fetch('/api/logs')
+                fetch('/api/logs'),
+                fetch('/api/badges')
             ]);
             const rulesData = await rulesRes.json();
             const logsData = await logsRes.json();
 
             setRules(Array.isArray(rulesData) ? rulesData : []);
+
             const logsArray = Array.isArray(logsData) ? logsData : [];
             setLogs(logsArray.map((l: any) => ({
                 id: l.id,
@@ -131,7 +140,7 @@ export default function Dashboard() {
         <div className="flex min-h-screen bg-[#fdf6ff] cartoon-grid">
             {/* Playful Sidebar */}
             <aside className="w-80 p-6 hidden xl:flex flex-col sticky top-0 h-screen z-20">
-                <div className="bubbly-card h-full flex flex-col p-6 bg-white overflow-hidden relative">
+                <div className="bubbly-card h-full flex flex-col p-6 bg-white relative">
                     {/* Decorative blobs inside sidebar background */}
                     <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-2xl -z-1" />
                     <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/10 rounded-full blur-2xl -z-1" />
@@ -149,6 +158,7 @@ export default function Dashboard() {
                         {[
                             { id: 'terminal', icon: <LayoutDashboard className="w-5 h-5" />, label: "Control Center", color: "bg-[#FFD700]" },
                             { id: 'fleet', icon: <Bot className="w-5 h-5" />, label: "Robot Army", color: "bg-[#33D1FF]" },
+                            { id: 'rewards', icon: <Star className="w-5 h-5" />, label: "Reward Center", color: "bg-[#8B5CF6]" },
                             { id: 'vault', icon: <Wallet className="w-5 h-5" />, label: "Piggy Bank", color: "bg-[#FF7EB9]" },
                             { id: 'archive', icon: <History className="w-5 h-5" />, label: "Time Machine", color: "bg-[#10B981]" },
                         ].map((item, i) => (
@@ -165,8 +175,8 @@ export default function Dashboard() {
                                 </div>
                                 {item.label}
                                 {activeTab === item.id && (
-                                    <motion.div layoutId="activeTab" className="absolute right-4">
-                                        <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                    <motion.div layoutId="activeTab" className="absolute right-4 text-yellow-400">
+                                        <Sparkles className="w-4 h-4 fill-current" />
                                     </motion.div>
                                 )}
                             </button>
@@ -174,14 +184,14 @@ export default function Dashboard() {
                     </nav>
 
                     <div className="mt-auto">
-                        <div className="bg-[#f0f9ff] p-5 rounded-3xl border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] relative overflow-hidden group hover:rotate-2 transition-transform">
-                            <div className="flex items-center gap-2 mb-2 relative z-10">
-                                <Smile className="w-5 h-5 text-blue-500 fill-blue-200" />
-                                <span className="text-xs font-black text-blue-600">Pro Tip!</span>
+                        <div className="bg-[#f0f9ff] p-4 rounded-3xl border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] relative overflow-hidden group hover:rotate-2 transition-transform">
+                            <div className="flex items-center gap-2 mb-1.5 relative z-10 text-blue-500">
+                                <Smile className="w-4 h-4 fill-current opacity-40" />
+                                <span className="text-[10px] font-black uppercase tracking-wider">Pro Tip</span>
                             </div>
-                            <p className="text-[11px] text-[#555] font-bold leading-relaxed relative z-10">This is a sandbox, so feel free to play around! No real money involved yet! 🚀</p>
-                            <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none group-hover:scale-150 transition-transform">
-                                <Star className="w-12 h-12 fill-current" />
+                            <p className="text-[10px] text-[#555] font-bold leading-tight relative z-10 italic">"Feel free to play around! No real money involved! 🚀"</p>
+                            <div className="absolute top-0 right-0 p-1 opacity-5 pointer-events-none group-hover:scale-150 transition-transform">
+                                <Star className="w-10 h-10 fill-current" />
                             </div>
                         </div>
                     </div>
@@ -228,6 +238,25 @@ export default function Dashboard() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                             {/* Left Section (Agents & Logic) */}
                             <div className="lg:col-span-8 space-y-10 flex flex-col">
+                                {/* Badges Ticker (Mini) */}
+                                {badges.length > 0 && (
+                                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                                        {badges.map(badge => (
+                                            <motion.div
+                                                key={badge.id}
+                                                initial={{ scale: 0 }}
+                                                animate={{ scale: 1 }}
+                                                className="flex-shrink-0 flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a]"
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-yellow-400 border-2 border-[#1a1a1a] flex items-center justify-center">
+                                                    <Star className="w-4 h-4 text-white fill-white" />
+                                                </div>
+                                                <span className="text-xs font-black text-[#1a1a1a] whitespace-nowrap">{badge.name}</span>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {/* Agent's Thought Bubbles */}
                                 <section className="relative">
                                     <div className="flex items-center gap-4 mb-6 ml-2">
@@ -621,6 +650,64 @@ export default function Dashboard() {
                             </section>
                         </div>
                     )}
+
+
+                    {activeTab === 'rewards' && (
+                        <div className="space-y-12">
+                            <header className="text-center space-y-4 max-w-2xl mx-auto">
+                                <h3 className="text-5xl font-black text-[#1a1a1a] font-cartoon">Badges of Honor</h3>
+                                <p className="text-xl text-gray-400 font-bold">Show off your achievements as an elite AI commander!</p>
+                            </header>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 px-4">
+                                {ALL_BADGES.map((badgeMaster) => {
+                                    const earned = badges.find(b => b.type === badgeMaster.type);
+                                    return (
+                                        <motion.div
+                                            key={badgeMaster.type}
+                                            whileHover={earned ? { y: -10, rotate: 1 } : { scale: 0.98 }}
+                                            className={`bubbly-card p-10 text-center flex flex-col items-center gap-6 relative overflow-hidden transition-all duration-500 ${earned ? 'bg-white opacity-100 ring-4 ring-[#8B5CF6]/20' : 'bg-gray-100/50 grayscale opacity-40 border-dashed border-gray-300'}`}
+                                        >
+                                            {earned && <div className="absolute top-0 left-0 w-full h-2 bg-[#8B5CF6] animate-pulse" />}
+                                            <div className={`w-24 h-24 rounded-[2rem] border-[4px] border-[#1a1a1a] shadow-[8px_8px_0px_#1a1a1a] flex items-center justify-center mb-4 transition-transform duration-500 ${earned ? 'bg-[#FFD700] rotate-0 pulse-glow' : 'bg-gray-200 grayscale scale-90'}`}>
+                                                {badgeMaster.icon}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <h4 className={`text-2xl font-black font-cartoon ${earned ? 'text-[#1a1a1a]' : 'text-gray-400'}`}>{badgeMaster.name}</h4>
+                                                <p className={`text-sm font-bold leading-relaxed ${earned ? 'text-gray-500' : 'text-gray-400'}`}>{badgeMaster.description}</p>
+                                            </div>
+                                            {earned ? (
+                                                <div className="mt-4 px-6 py-2 bg-[#f0fdf4] text-[#10B981] rounded-full border-[2px] border-[#10B981] text-[10px] font-black uppercase">
+                                                    Earned on {new Date(earned.earnedAt).toLocaleDateString()}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-4 px-6 py-2 bg-gray-200/50 text-gray-400 rounded-full border-[2px] border-gray-300 text-[10px] font-black uppercase">
+                                                    Locked Quest
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+
+                            {badges.length === 0 && (
+                                <div className="bubbly-card p-20 text-center space-y-8 bg-white">
+                                    <div className="w-32 h-32 bg-[#fdf6ff] border-[4px] border-[#1a1a1a] rounded-full flex items-center justify-center mx-auto shadow-[10px_10px_0px_#1a1a1a]">
+                                        <Sparkles size={64} className="text-gray-200" />
+                                    </div>
+                                    <h4 className="text-3xl font-black text-gray-200 font-cartoon">Empty Medal Cabinet!</h4>
+                                    <p className="text-gray-300 font-bold max-w-sm mx-auto">Complete your first mission to earn your very first badge!</p>
+                                    <button
+                                        onClick={() => setActiveTab('terminal')}
+                                        className="bubbly-button bg-[#FFD700] text-[#1a1a1a] px-10 py-4 font-black"
+                                    >
+                                        Go to Control Center
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
 
                     {activeTab === 'vault' && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">

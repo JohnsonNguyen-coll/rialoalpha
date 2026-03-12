@@ -45,3 +45,11 @@ model PriceData {
   low24h      Float
   timestamp   DateTime @default(now())
 }
+
+model Badge {
+  id          String   @id @default(uuid())
+  type        String   // e.g., 'first_trade', 'treasure_hunter', 'diamond_hands'
+  name        String
+  description String
+  earnedAt    DateTime @default(now())
+}

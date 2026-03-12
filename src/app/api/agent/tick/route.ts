@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 import axios from 'axios';
 import { getAIReasoning } from '@/lib/ai';
+import { checkAndAwardBadges } from '@/lib/badges';
 
 // Map symbols to CoinGecko IDs
 const SYMBOL_MAP: Record<string, string> = {
@@ -101,63 +102,130 @@ export async function GET() {
 
         await Promise.all(savePromises);
 
-        // 2. Get all active strategies
+        // 2. Get all active strategies with their last AI thought
         const activeStrategies = await prisma.strategy.findMany({
-            where: { status: 'active' }
+            where: { status: 'active' },
+            include: {
+                logs: {
+                    where: { type: 'ai_thought' },
+                    orderBy: { timestamp: 'desc' },
+                    take: 1
+                }
+            }
         });
 
-        const results = [];
+        if (activeStrategies.length === 0) {
+            return NextResponse.json({ timestamp: new Date().toISOString(), prices, results: [] });
+        }
+
+        // Fetch "Previous Price" for each token to determine if we need to update reasoning (Caching logic)
+        const uniqueSymbols = [...new Set(activeStrategies.map(s => s.tokenSymbol))];
+        const previousPricesList = await Promise.all(
+            uniqueSymbols.map(sym =>
+                prisma.priceData.findFirst({
+                    where: { tokenSymbol: sym },
+                    orderBy: { timestamp: 'desc' },
+                    skip: 1 // Skip the price we just saved
+                })
+            )
+        );
+        const prevPriceMap: Record<string, number> = {};
+        previousPricesList.forEach(p => { if (p) prevPriceMap[p.tokenSymbol] = p.price; });
+
+        const aiInputs = [];
+        const finalAIAnalyses: Record<string, { decision: string; advice: string }> = {};
 
         for (const strategy of activeStrategies) {
             const marketData = prices[strategy.tokenSymbol];
             if (!marketData) continue;
 
+            const currentPrice = marketData.current;
+            const currentDrop = ((marketData.high24h - marketData.current) / marketData.high24h) * 100;
+            const lastThought = strategy.logs[0];
+            const prevPrice = prevPriceMap[strategy.tokenSymbol];
+
+            // CACHING LOGIC: If price moved < 0.5% and target hasn't been hit, reuse old advice
+            let needsAI = true;
+            if (lastThought && prevPrice && currentDrop < strategy.targetDrop) {
+                const priceDiff = Math.abs((currentPrice - prevPrice) / prevPrice) * 100;
+                if (priceDiff < 0.5) {
+                    needsAI = false;
+                    finalAIAnalyses[strategy.id] = { decision: "MONITOR", advice: lastThought.message };
+                }
+            }
+
+            if (needsAI) {
+                aiInputs.push({
+                    id: strategy.id,
+                    token: strategy.tokenSymbol,
+                    currentPrice: marketData.current,
+                    high24h: marketData.high24h,
+                    dropPercentage: currentDrop,
+                    targetDrop: strategy.targetDrop
+                });
+            }
+        }
+
+        // 3. Call Batched AI Reasoning
+        if (aiInputs.length > 0) {
+            const batchedResults = await getAIReasoning(aiInputs);
+            batchedResults.forEach(res => {
+                finalAIAnalyses[res.id] = { decision: res.decision, advice: res.advice };
+            });
+        }
+
+        const results = [];
+
+        // 4. Process all strategies with their (new or cached) reasoning
+        for (const strategy of activeStrategies) {
+            const analysis = finalAIAnalyses[strategy.id];
+            if (!analysis) continue;
+
+            const marketData = prices[strategy.tokenSymbol];
             const currentDrop = ((marketData.high24h - marketData.current) / marketData.high24h) * 100;
 
-            // --- AI REASONING LAYER ---
-            const aiReason = await getAIReasoning({
-                token: strategy.tokenSymbol,
-                currentPrice: marketData.current,
-                high24h: marketData.high24h,
-                dropPercentage: currentDrop,
-                targetDrop: strategy.targetDrop
-            });
+            let shouldExecute = analysis.decision === "EXECUTE" && currentDrop >= strategy.targetDrop;
 
-            let shouldExecute = aiReason.decision === "EXECUTE" && currentDrop >= strategy.targetDrop;
+            // Log AI Thought to DB (only if it's NEW - check if it's different from last or if we actually called AI)
+            // To keep it simple, we'll log it if we had to call AI (aiInputs contains this strategy)
+            const wasAiCalled = aiInputs.some(input => input.id === strategy.id);
+            if (wasAiCalled) {
+                await prisma.log.create({
+                    data: {
+                        strategyId: strategy.id,
+                        message: analysis.advice,
+                        type: 'ai_thought'
+                    }
+                });
+            }
 
-            // Log AI Thought to DB
-            await prisma.log.create({
-                data: {
-                    strategyId: strategy.id,
-                    message: aiReason.advice,
-                    type: 'ai_thought'
-                }
-            });
-
-            // 3. Execute Trade if triggered and AI agrees
+            // 5. Execute Trade if triggered and AI agrees
             if (shouldExecute) {
                 const amountBought = strategy.amount / marketData.current;
 
-                await prisma.$transaction([
-                    prisma.trade.create({
+                await prisma.$transaction(async (tx) => {
+                    await tx.trade.create({
                         data: {
                             strategyId: strategy.id,
                             executionPrice: marketData.current,
                             amountBought: amountBought
                         }
-                    }),
-                    prisma.strategy.update({
+                    });
+                    await tx.strategy.update({
                         where: { id: strategy.id },
                         data: { status: 'completed' }
-                    }),
-                    prisma.log.create({
+                    });
+                    await tx.log.create({
                         data: {
                             strategyId: strategy.id,
                             message: `SIMULATED BUY: Agent executed purchase of ${amountBought.toFixed(4)} ${strategy.tokenSymbol} @ $${marketData.current}.`,
                             type: 'success'
                         }
-                    })
-                ]);
+                    });
+                });
+
+                // Check and award badges after trade
+                await checkAndAwardBadges(strategy.id);
 
                 results.push({ strategyId: strategy.id, status: 'executed' });
             } else {

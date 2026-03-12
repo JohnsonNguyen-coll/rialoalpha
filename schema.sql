@@ -39,3 +39,11 @@ CREATE TABLE "PriceData" (
     "timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- CreateTable
+CREATE TABLE "Badge" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "type" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "earnedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
