@@ -254,7 +254,7 @@ export async function GET() {
             const currentPrice = marketData.current;
             const executionPrice = lastTrade.executionPrice;
             const profitPct = ((currentPrice - executionPrice) / executionPrice) * 100;
-            const tpTarget = strategy.takeProfit || 10;
+            const tpTarget = (strategy as any).takeProfit || 10;
 
             if (profitPct >= tpTarget) {
                 const pnlValue = (currentPrice - executionPrice) * lastTrade.amountBought;
@@ -267,7 +267,7 @@ export async function GET() {
                     
                     await tx.trade.update({
                         where: { id: lastTrade.id },
-                        data: { pnl: pnlValue }
+                        data: { pnl: pnlValue } as any
                     });
 
                     await tx.log.create({

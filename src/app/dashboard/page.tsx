@@ -601,8 +601,8 @@ export default function Dashboard() {
                                         Robot Army Barracks
                                     </h3>
                                     <div className="flex gap-4">
-                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Active: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').length}</div>
-                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Done: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active' || r.status === 'completed').filter(r => r.status === 'completed').length}</div>
+                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Active: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'active' || r.status === 'holding').length}</div>
+                                        <div className="text-xs font-black text-[#555] bg-white border-[2px] border-[#1a1a1a] px-4 py-2 rounded-xl shadow-[2px_2px_0px_#1a1a1a]">Done: {(Array.isArray(rules) ? rules : []).filter(r => r.status === 'completed').length}</div>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto custom-scrollbar">
@@ -630,15 +630,26 @@ export default function Dashboard() {
                                                         </div>
                                                     </td>
                                                     <td className="py-8 px-10">
-                                                        <div className="inline-block px-4 py-2 bg-white border-[2px] border-[#1a1a1a] rounded-xl shadow-[2px_2px_0px_#1a1a1a]">
-                                                            <span className="text-[#1a1a1a] font-black block text-sm">Dip Hunter V3</span>
-                                                            <span className="text-primary block text-[10px] font-black">Trigger: -{rule.targetDrop}%</span>
+                                                        <div className="flex flex-col gap-2">
+                                                            <div className="inline-block px-4 py-2 bg-white border-[2px] border-[#1a1a1a] rounded-xl shadow-[2px_2px_0px_#1a1a1a]">
+                                                                <span className="text-[#1a1a1a] font-black block text-sm">Dip Hunter V3</span>
+                                                                <span className="text-primary block text-[10px] font-black">Buy at: -{rule.targetDrop}%</span>
+                                                            </div>
+                                                            <div className="inline-block px-4 py-2 bg-[#f0fdf4] border-[2px] border-[#1a1a1a] rounded-xl shadow-[2px_2px_0px_#1a1a1a]">
+                                                                <span className="text-success block text-[10px] font-black">Sell at: +{rule.takeProfit || 10}%</span>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="py-8 px-10">
                                                         <div className="flex justify-center">
-                                                            <span className={`px-4 py-1.5 rounded-full text-xs font-black border-[3px] border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] ${rule.status === 'active' ? 'bg-[#33D1FF] text-white' : 'bg-[#10B981] text-white'}`}>
-                                                                {rule.status === 'active' ? 'WORKING' : 'FINISHED'}
+                                                            <span className={`px-4 py-1.5 rounded-full text-xs font-black border-[3px] border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] ${
+                                                                rule.status === 'active' ? 'bg-[#33D1FF] text-white' : 
+                                                                rule.status === 'holding' ? 'bg-[#FFD700] text-[#1a1a1a]' : 
+                                                                'bg-[#10B981] text-white'
+                                                            }`}>
+                                                                {rule.status === 'active' ? 'HUNTING' : 
+                                                                 rule.status === 'holding' ? 'HOLDING' : 
+                                                                 'COMPLETED'}
                                                             </span>
                                                         </div>
                                                     </td>

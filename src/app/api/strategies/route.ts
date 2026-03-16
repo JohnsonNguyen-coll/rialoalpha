@@ -35,7 +35,7 @@ export async function POST(request: Request) {
                 amount: parseFloat(amount),
                 takeProfit: takeProfit ? parseFloat(takeProfit) : 10,
                 status: 'active',
-            },
+            } as any,
         });
 
         // Create initial log
