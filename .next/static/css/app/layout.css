@@ -803,6 +803,9 @@ video {
 .h-\[300px\] {
   height: 300px;
 }
+.h-\[350px\] {
+  height: 350px;
+}
 .h-full {
   height: 100%;
 }

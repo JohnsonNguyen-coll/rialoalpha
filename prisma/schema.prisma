@@ -2,6 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 generator client {
   provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -11,6 +12,7 @@ model Strategy {
   id           String   @id @default(uuid())
   tokenSymbol  String
   targetDrop   Float    // Target drop percentage from 24h high
+  takeProfit   Float?   @default(10) // Take profit percentage from buy price
   amount       Float    // Amount in USDC to spend
   status       String   @default("active") // active, triggered, completed, paused
   createdAt    DateTime @default(now())
@@ -25,6 +27,7 @@ model Trade {
   strategy       Strategy @relation(fields: [strategyId], references: [id])
   executionPrice Float
   amountBought   Float
+  pnl            Float?   @default(0) // Profit/Loss in USDC
   timestamp      DateTime @default(now())
 }
 

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PriceChart from '@/components/PriceChart';
+import PnLChart from '@/components/PnLChart';
 
 // Types
 interface LogEntry {
@@ -55,6 +56,7 @@ export default function Dashboard() {
     // Form state
     const [tokenSymbol, setTokenSymbol] = useState('SOL');
     const [targetDrop, setTargetDrop] = useState('');
+    const [takeProfit, setTakeProfit] = useState('10'); // Default 10%
     const [amount, setAmount] = useState('');
     const [selectedChartSymbol, setSelectedChartSymbol] = useState('SOL');
     const [showAssetDropdown, setShowAssetDropdown] = useState(false);
@@ -110,9 +112,10 @@ export default function Dashboard() {
             await fetch('/api/strategies', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tokenSymbol, targetDrop, amount }),
+                body: JSON.stringify({ tokenSymbol, targetDrop, amount, takeProfit }),
             });
             setTargetDrop('');
+            setTakeProfit('10');
             setAmount('');
             fetchData();
         } catch (err: any) {
@@ -333,7 +336,7 @@ export default function Dashboard() {
                                         </h3>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                                         <div className="space-y-4">
                                             <label className="text-sm font-black text-[#1a1a1a] ml-2">Which Token?</label>
                                             <div className="relative">
@@ -382,40 +385,47 @@ export default function Dashboard() {
                                         </div>
 
                                         <div className="space-y-4">
-                                            <label className="text-sm font-black text-[#1a1a1a] ml-2">When to Buy? (Drop %)</label>
+                                            <label className="text-sm font-black text-[#1a1a1a] ml-2">Drop Target</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
                                                     min="0"
                                                     value={targetDrop}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (parseFloat(val) < 0) return;
-                                                        setTargetDrop(val);
-                                                    }}
+                                                    onChange={(e) => setTargetDrop(e.target.value)}
                                                     placeholder="5.0"
                                                     className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary focus:ring-opacity-20 transition-all font-black text-lg text-[#1a1a1a]"
                                                 />
-                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-black">% Drop</div>
+                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-black">%</div>
                                             </div>
                                         </div>
 
                                         <div className="space-y-4">
-                                            <label className="text-sm font-black text-[#1a1a1a] ml-2">Budget (USD)</label>
+                                            <label className="text-sm font-black text-[#1a1a1a] ml-2">Profit Target</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={takeProfit}
+                                                    onChange={(e) => setTakeProfit(e.target.value)}
+                                                    placeholder="10.0"
+                                                    className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary focus:ring-opacity-20 transition-all font-black text-lg text-[#1a1a1a]"
+                                                />
+                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-black">+%</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <label className="text-sm font-black text-[#1a1a1a] ml-2">Budget</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
                                                     min="0"
                                                     value={amount}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (parseFloat(val) < 0) return;
-                                                        setAmount(val);
-                                                    }}
+                                                    onChange={(e) => setAmount(e.target.value)}
                                                     placeholder="1000"
                                                     className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary focus:ring-opacity-20 transition-all font-black text-lg text-[#1a1a1a]"
                                                 />
-                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-black">$ USD</div>
+                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-black">$</div>
                                             </div>
                                         </div>
                                     </div>
@@ -722,7 +732,7 @@ export default function Dashboard() {
                                 },
                                 {
                                     title: "Stashed Away",
-                                    amount: "$0.00",
+                                    amount: `$${((Array.isArray(rules) ? rules : []).reduce((sum, r) => sum + (r.trades?.reduce((s: number, t: any) => s + (t.pnl || 0), 0) || 0), 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                                     unit: "TOTAL PROFIT",
                                     color: "bg-[#FF7EB9]",
                                     icon: <Heart className="w-8 h-8" />,
@@ -756,6 +766,16 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             ))}
+
+                            <section className="md:col-span-3 space-y-8">
+                                <div className="flex items-center gap-4 ml-2">
+                                    <div className="w-10 h-10 rounded-xl bg-[#FF7EB9] border-[3px] border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] flex items-center justify-center">
+                                        <BarChart3 className="w-6 h-6 text-white" />
+                                    </div>
+                                    <h3 className="text-3xl font-black text-[#1a1a1a] font-cartoon">PnL Leaderboard</h3>
+                                </div>
+                                <PnLChart strategies={rules} />
+                            </section>
 
                             <section className="md:col-span-3 bubbly-card bg-white overflow-hidden relative">
                                 <div className="p-8 border-b-[3px] border-[#1a1a1a] bg-[#f8fafc] flex justify-between items-center sm:flex-row flex-col gap-4">

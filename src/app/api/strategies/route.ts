@@ -26,13 +26,14 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { tokenSymbol, targetDrop, amount } = body;
+        const { tokenSymbol, targetDrop, amount, takeProfit } = body;
 
         const strategy = await prisma.strategy.create({
             data: {
                 tokenSymbol,
                 targetDrop: parseFloat(targetDrop),
                 amount: parseFloat(amount),
+                takeProfit: takeProfit ? parseFloat(takeProfit) : 10,
                 status: 'active',
             },
         });
@@ -41,13 +42,14 @@ export async function POST(request: Request) {
         await prisma.log.create({
             data: {
                 strategyId: strategy.id,
-                message: `Agent initialized for ${tokenSymbol} with ${targetDrop}% target drop.`,
+                message: `Agent initialized for ${tokenSymbol} (-${targetDrop}% drop, +${takeProfit || 10}% profit target).`,
                 type: 'info',
             },
         });
 
         return NextResponse.json(strategy);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to create strategy' }, { status: 500 });
+        console.error('CREATE STRATEGY ERROR:', error);
+        return NextResponse.json({ error: 'Failed to create strategy', details: String(error) }, { status: 500 });
     }
 }

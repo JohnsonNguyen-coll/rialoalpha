@@ -102,21 +102,33 @@ export async function GET() {
 
         await Promise.all(savePromises);
 
-        // 2. Get all active strategies with their last AI thought
-        const activeStrategies = await prisma.strategy.findMany({
-            where: { status: 'active' },
+        // 2. Get all strategies that are either active (waiting to buy) or holding (waiting to sell)
+        const allStrategies = await prisma.strategy.findMany({
+            where: {
+                OR: [
+                    { status: 'active' },
+                    { status: 'holding' }
+                ]
+            },
             include: {
                 logs: {
                     where: { type: 'ai_thought' },
+                    orderBy: { timestamp: 'desc' },
+                    take: 1
+                },
+                trades: {
                     orderBy: { timestamp: 'desc' },
                     take: 1
                 }
             }
         });
 
-        if (activeStrategies.length === 0) {
+        if (allStrategies.length === 0) {
             return NextResponse.json({ timestamp: new Date().toISOString(), prices, results: [] });
         }
+
+        const activeStrategies = allStrategies.filter(s => s.status === 'active');
+        const holdingStrategies = allStrategies.filter(s => s.status === 'holding');
 
         // Fetch "Previous Price" for each token to determine if we need to update reasoning (Caching logic)
         const uniqueSymbols = [...new Set(activeStrategies.map(s => s.tokenSymbol))];
@@ -213,7 +225,7 @@ export async function GET() {
                     });
                     await tx.strategy.update({
                         where: { id: strategy.id },
-                        data: { status: 'completed' }
+                        data: { status: 'holding' }
                     });
                     await tx.log.create({
                         data: {
@@ -230,6 +242,45 @@ export async function GET() {
                 results.push({ strategyId: strategy.id, status: 'executed' });
             } else {
                 results.push({ strategyId: strategy.id, status: 'monitored' });
+            }
+        }
+
+        // 6. Process Take Profit for Holding strategies
+        for (const strategy of holdingStrategies) {
+            const marketData = prices[strategy.tokenSymbol];
+            const lastTrade = strategy.trades[0];
+            if (!marketData || !lastTrade) continue;
+
+            const currentPrice = marketData.current;
+            const executionPrice = lastTrade.executionPrice;
+            const profitPct = ((currentPrice - executionPrice) / executionPrice) * 100;
+            const tpTarget = strategy.takeProfit || 10;
+
+            if (profitPct >= tpTarget) {
+                const pnlValue = (currentPrice - executionPrice) * lastTrade.amountBought;
+
+                await prisma.$transaction(async (tx) => {
+                    await tx.strategy.update({
+                        where: { id: strategy.id },
+                        data: { status: 'completed' }
+                    });
+                    
+                    await tx.trade.update({
+                        where: { id: lastTrade.id },
+                        data: { pnl: pnlValue }
+                    });
+
+                    await tx.log.create({
+                        data: {
+                            strategyId: strategy.id,
+                            message: `💰 TAKE PROFIT: Sold ${strategy.tokenSymbol} at $${currentPrice.toFixed(2)} for a profit of $${pnlValue.toFixed(2)} (+${profitPct.toFixed(2)}%)!`,
+                            type: 'success'
+                        }
+                    });
+                });
+                results.push({ strategyId: strategy.id, status: 'take_profit_executed' });
+            } else {
+                results.push({ strategyId: strategy.id, status: 'holding_monitored', currentProfit: profitPct });
             }
         }
 
