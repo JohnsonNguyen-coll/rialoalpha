@@ -69,17 +69,27 @@ export default function PnLChart({ strategies }: PnLChartProps) {
                         tick={{ fill: '#1a1a1a', fontSize: 10, fontWeight: '900' }}
                     />
                     <Tooltip 
-                        contentStyle={{ 
-                            background: '#fff', 
-                            border: '3px solid #1a1a1a', 
-                            borderRadius: '1.5rem',
-                            fontWeight: '900',
-                            boxShadow: '4px 4px 0px #1a1a1a'
+                        content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                                const val = payload[0].value as number;
+                                return (
+                                    <div className="bg-white border-[3px] border-[#1a1a1a] p-4 rounded-2xl shadow-[4px_4px_0px_#1a1a1a]">
+                                        <p className="font-black text-xs text-gray-400 capitalize mb-1">{payload[0].payload.name}</p>
+                                        <p className={`text-xl font-black ${val >= 0 ? 'text-success' : 'text-error'}`}>
+                                            PnL: {val >= 0 ? '+' : ''}${val.toLocaleString()}
+                                        </p>
+                                    </div>
+                                );
+                            }
+                            return null;
                         }}
                         cursor={{ fill: '#f8fafc' }}
                     />
                     <ReferenceLine y={0} stroke="#1a1a1a" strokeWidth={2} />
-                    <Bar dataKey="pnl" radius={[8, 8, 0, 0]}>
+                    <Bar 
+                        dataKey="pnl" 
+                        radius={[8, 8, 0, 0]}
+                    >
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? '#10B981' : '#EF4444'} />
                         ))}

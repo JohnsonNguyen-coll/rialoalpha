@@ -1,9 +1,9 @@
 {
   "/api/prices/[symbol]/route": "app/api/prices/[symbol]/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
   "/api/badges/route": "app/api/badges/route.js",
-  "/icon.png/route": "app/icon.png/route.js",
   "/api/strategies/route": "app/api/strategies/route.js",
+  "/icon.png/route": "app/icon.png/route.js",
   "/api/logs/route": "app/api/logs/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
   "/api/agent/tick/route": "app/api/agent/tick/route.js"
 }
