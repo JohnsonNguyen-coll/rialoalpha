@@ -69,9 +69,9 @@ export default function Dashboard() {
     const tokens = ['SOL', 'ETH', 'BTC', 'BNB', 'ADA', 'DOT', 'LINK', 'POL', 'XRP', 'AVAX'];
 
     const ALL_BADGES = [
-        { type: 'first_trade', name: 'First Mission Accomplished', description: 'You deployed your first robot and successfully bought the dip!', icon: <Star className="w-12 h-12 text-white fill-white" /> },
-        { type: 'treasure_hunter', name: 'Treasure Hunter', description: 'Patience is a virtue! You caught a massive dip of 10% or more.', icon: <Sparkles className="w-12 h-12 text-white fill-white" /> },
-        { type: 'diamond_hands', name: 'Diamond Hands', description: 'You held your position through the storm and came out stronger.', icon: <Heart className="w-12 h-12 text-white fill-white" /> },
+        { type: 'first_trade', name: 'First Mission Accomplished', description: 'You deployed your first robot and successfully bought the dip!', icon: <img src="/first-mission-badge.png" alt="First Mission" className="w-[80%] h-[80%] object-contain" /> },
+        { type: 'treasure_hunter', name: 'Treasure Hunter', description: 'Patience is a virtue! You caught a massive dip of 10% or more.', icon: <img src="/treasure-hunter-badge.png" alt="Treasure Hunter" className="w-[80%] h-[80%] object-contain" /> },
+        { type: 'diamond_hands', name: 'Diamond Hands', description: 'You held your position through the storm and came out stronger.', icon: <img src="/dimond-hand-badge.png" alt="Diamond Hands" className="w-[80%] h-[80%] object-contain" /> },
     ];
 
     const fetchData = async () => {
@@ -281,8 +281,8 @@ export default function Dashboard() {
                                                 animate={{ scale: 1 }}
                                                 className="flex-shrink-0 flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a]"
                                             >
-                                                <div className="w-8 h-8 rounded-full bg-yellow-400 border-2 border-[#1a1a1a] flex items-center justify-center">
-                                                    <Star className="w-4 h-4 text-white fill-white" />
+                                                <div className="w-8 h-8 rounded-full bg-yellow-400 border-2 border-[#1a1a1a] flex items-center justify-center overflow-hidden">
+                                                    {ALL_BADGES.find(b => b.type === badge.type)?.icon || <Star className="w-4 h-4 text-white fill-white" />}
                                                 </div>
                                                 <span className="text-xs font-black text-[#1a1a1a] whitespace-nowrap">{badge.name}</span>
                                             </motion.div>
