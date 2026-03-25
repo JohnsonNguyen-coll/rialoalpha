@@ -61,6 +61,11 @@ export default function Dashboard() {
     const [selectedChartSymbol, setSelectedChartSymbol] = useState('SOL');
     const [showAssetDropdown, setShowAssetDropdown] = useState(false);
 
+    // Backtest state
+    const [backtestLoading, setBacktestLoading] = useState(false);
+    const [backtestResult, setBacktestResult] = useState<any>(null);
+    const [backtestDays, setBacktestDays] = useState('30');
+
     const tokens = ['SOL', 'ETH', 'BTC', 'BNB', 'ADA', 'DOT', 'LINK', 'POL', 'XRP', 'AVAX'];
 
     const ALL_BADGES = [
@@ -136,6 +141,31 @@ export default function Dashboard() {
             console.error('Tick error:', error);
         } finally {
             setTicking(false);
+        }
+    };
+
+    const handleRunBacktest = async () => {
+        if (!targetDrop || !amount) return;
+        setBacktestLoading(true);
+        setBacktestResult(null);
+        try {
+            const res = await fetch('/api/backtest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    tokenSymbol, 
+                    targetDrop, 
+                    takeProfit, 
+                    amount, 
+                    days: parseInt(backtestDays) 
+                }),
+            });
+            const data = await res.json();
+            setBacktestResult(data);
+        } catch (err: any) {
+            console.error('Backtest error:', err);
+        } finally {
+            setBacktestLoading(false);
         }
     };
 
@@ -734,25 +764,29 @@ export default function Dashboard() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                             {[
                                 {
-                                    title: "Available Candy",
-                                    amount: `$${((Array.isArray(rules) ? rules : []).filter(r => r.status === 'active').reduce((sum, r) => sum + Number(r.amount), 0)).toLocaleString()}`,
-                                    unit: "ALREADY IN USE",
+                                    title: "Allocated Candy",
+                                    amount: `$${((Array.isArray(rules) ? rules : []).filter(r => r.status === 'active' || r.status === 'holding').reduce((sum, r) => sum + Number(r.amount), 0)).toLocaleString()}`,
+                                    unit: "CURRENTLY WORKING",
                                     color: "bg-[#FFD700]",
                                     icon: <Star className="w-8 h-8" />,
                                     trend: null
                                 },
                                 {
-                                    title: "Stashed Away",
+                                    title: "Total Profit",
                                     amount: `$${((Array.isArray(rules) ? rules : []).reduce((sum, r) => sum + (r.trades?.reduce((s: number, t: any) => s + (t.pnl || 0), 0) || 0), 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                                    unit: "TOTAL PROFIT",
+                                    unit: "STASHED AWAY",
                                     color: "bg-[#FF7EB9]",
                                     icon: <Heart className="w-8 h-8" />,
                                     trend: null
                                 },
                                 {
-                                    title: "Risk Meter",
-                                    amount: rules.filter(r => r.status === 'active').length > 0 ? "Active" : "Stable",
-                                    unit: "CURRENT STATE",
+                                    title: "Net Balance",
+                                    amount: `$${(
+                                        10000 + 
+                                        (Array.isArray(rules) ? rules : []).reduce((sum, r) => sum + (r.trades?.reduce((s: number, t: any) => s + (t.pnl || 0), 0) || 0), 0) -
+                                        (Array.isArray(rules) ? rules : []).filter(r => r.status === 'active' || r.status === 'holding').reduce((sum, r) => sum + Number(r.amount), 0)
+                                    ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                                    unit: "READY TO SPEND",
                                     color: "bg-[#10B981]",
                                     icon: <ShieldCheck className="w-8 h-8" />,
                                     trend: null
@@ -796,19 +830,36 @@ export default function Dashboard() {
                                     </button>
                                 </div>
                                 <div className="p-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                                    {['SOL', 'ETH', 'BTC', 'USDC'].map(asset => (
-                                        <div key={asset} className="p-8 bg-[#fdf6ff] border-[3px] border-[#1a1a1a] rounded-3xl flex flex-col items-center gap-4 group hover:bg-[#8B5CF6]/5 transition-colors">
-                                            <div className="w-16 h-16 rounded-2xl bg-white border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-center group-hover:rotate-6 transition-transform">
-                                                <Zap className="w-8 h-8 text-primary" />
-                                            </div>
-                                            <div className="text-center">
-                                                <div className="font-cartoon text-2xl text-[#1a1a1a]">{asset}</div>
-                                                <div className="font-black text-xs text-gray-400 uppercase">
-                                                    Balance: {asset === 'USDC' ? '10,000.00' : '0.00'}
+                                    {['SOL', 'ETH', 'BTC', 'USDC'].map(asset => {
+                                        const holdingAmount = (Array.isArray(rules) ? rules : [])
+                                            .filter(r => r.status === 'holding' && r.tokenSymbol === asset)
+                                            .reduce((sum, r) => sum + (r.trades?.[0]?.amountBought || 0), 0);
+                                        
+                                        const currentProfit = (Array.isArray(rules) ? rules : [])
+                                            .reduce((sum, r) => sum + (r.trades?.reduce((s: number, t: any) => s + (t.pnl || 0), 0) || 0), 0);
+                                            
+                                        const usedUSDC = (Array.isArray(rules) ? rules : [])
+                                            .filter(r => r.status === 'active' || r.status === 'holding')
+                                            .reduce((sum, r) => sum + Number(r.amount), 0);
+                                            
+                                        const displayBalance = asset === 'USDC' 
+                                            ? (10000 + currentProfit - usedUSDC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                            : holdingAmount.toFixed(4);
+
+                                        return (
+                                            <div key={asset} className="p-8 bg-[#fdf6ff] border-[3px] border-[#1a1a1a] rounded-3xl flex flex-col items-center gap-4 group hover:bg-[#8B5CF6]/5 transition-colors">
+                                                <div className="w-16 h-16 rounded-2xl bg-white border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-center group-hover:rotate-6 transition-transform">
+                                                    <Zap className="w-8 h-8 text-primary" />
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="font-cartoon text-2xl text-[#1a1a1a]">{asset}</div>
+                                                    <div className="font-black text-xs text-gray-400 uppercase">
+                                                        Balance: {displayBalance} {asset}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </section>
                         </div>
@@ -816,21 +867,172 @@ export default function Dashboard() {
 
                     {activeTab === 'archive' && (
                         <div className="space-y-10">
-                            <section className="bubbly-card bg-white overflow-hidden relative">
-                                <div className="p-8 border-b-[3px] border-[#1a1a1a] bg-[#fdf6ff] flex justify-between items-center">
-                                    <h3 className="text-2xl font-black text-[#1a1a1a] font-cartoon">Mission Log Archive</h3>
-                                    <button className="px-6 py-2 bg-white border-[3px] border-[#1a1a1a] rounded-xl text-xs font-black text-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] hover:translate-y-1 hover:translate-x-1 hover:shadow-none transition-all">Reset Telescope</button>
+                            {/* Time Machine Header */}
+                            <header className="text-center space-y-6 max-w-2xl mx-auto">
+                                <div className="w-24 h-24 bg-[#10B981] border-[4px] border-[#1a1a1a] rounded-[2rem] flex items-center justify-center mx-auto shadow-[10px_10px_0px_#1a1a1a] rotate-3 hover:rotate-0 transition-transform cursor-pointer">
+                                    <History size={48} className="text-white" />
                                 </div>
-                                <div className="p-24 text-center space-y-6">
-                                    <div className="w-24 h-24 bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-full flex items-center justify-center mx-auto shadow-[6px_6px_0px_#1a1a1a]">
-                                        <History className="w-12 h-12 text-gray-300" />
+                                <div className="space-y-2">
+                                    <h3 className="text-5xl font-black text-[#1a1a1a] font-cartoon">The Time Machine</h3>
+                                    <p className="text-xl text-gray-500 font-bold">Simulator: Test your bot's strategy in the past! 🕰️</p>
+                                </div>
+                            </header>
+
+                            <section className="bubbly-card p-10 bg-white relative">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-black text-[#1a1a1a]">Asset</label>
+                                        <select 
+                                            value={tokenSymbol}
+                                            onChange={(e) => setTokenSymbol(e.target.value)}
+                                            className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none font-black text-lg text-[#1a1a1a] appearance-none"
+                                        >
+                                            {tokens.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <h4 className="text-gray-300 font-cartoon text-3xl">Dusty Shelves...</h4>
-                                        <p className="text-sm text-gray-400 font-black max-w-sm mx-auto">No old robot missions found yet! Recruit some friends to see their history here!</p>
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-black text-[#1a1a1a]">Drop %</label>
+                                        <input
+                                            type="number"
+                                            value={targetDrop}
+                                            onChange={(e) => setTargetDrop(e.target.value)}
+                                            placeholder="5.0"
+                                            className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none font-black text-lg text-[#1a1a1a]"
+                                        />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-black text-[#1a1a1a]">TP %</label>
+                                        <input
+                                            type="number"
+                                            value={takeProfit}
+                                            onChange={(e) => setTakeProfit(e.target.value)}
+                                            placeholder="10.0"
+                                            className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none font-black text-lg text-[#1a1a1a]"
+                                        />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-black text-[#1a1a1a]">Budget ($)</label>
+                                        <input
+                                            type="number"
+                                            value={amount}
+                                            onChange={(e) => setAmount(e.target.value)}
+                                            placeholder="1000"
+                                            className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none font-black text-lg text-[#1a1a1a]"
+                                        />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-black text-[#1a1a1a]">Range</label>
+                                        <select 
+                                            value={backtestDays}
+                                            onChange={(e) => setBacktestDays(e.target.value)}
+                                            className="w-full bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-2xl px-6 py-5 focus:outline-none font-black text-lg text-[#1a1a1a] appearance-none"
+                                        >
+                                            <option value="7">Last 7 Days</option>
+                                            <option value="30">Last 30 Days</option>
+                                            <option value="90">Last 90 Days</option>
+                                            <option value="365">Last Year</option>
+                                        </select>
                                     </div>
                                 </div>
+
+                                <button
+                                    onClick={handleRunBacktest}
+                                    disabled={backtestLoading}
+                                    className="bubbly-button w-full bg-[#10B981] text-white text-xl font-black py-6 rounded-3xl flex items-center justify-center gap-4 transition-all"
+                                >
+                                    {backtestLoading ? (
+                                        <>Exploring the past... <RefreshCw className="animate-spin" /></>
+                                    ) : (
+                                        <>Initialize Time Jump! ⚡</>
+                                    )}
+                                </button>
                             </section>
+
+                            {backtestResult && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="space-y-10"
+                                >
+                                    {/* Big Result Card */}
+                                    <section className="bubbly-card p-12 bg-white relative overflow-hidden text-center">
+                                        <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-[#10B981] via-[#33D1FF] to-[#10B981] animate-pulse" />
+                                        
+                                        <div className="space-y-4 mb-10">
+                                            <h4 className="text-3xl font-black font-cartoon">Mission Report Summarized!</h4>
+                                            <p className="text-6xl font-black text-[#1a1a1a] font-cartoon">
+                                                {parseFloat(backtestResult.returnPercentage) >= 0 ? '+' : ''}{backtestResult.returnPercentage}%
+                                            </p>
+                                            <div className="inline-block px-8 py-3 bg-[#f0fdf4] text-[#10B981] border-[3px] border-[#10B981] rounded-2xl font-black">
+                                                TOTAL PROFIT: ${backtestResult.totalProfit}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                            <div className="p-6 bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-3xl">
+                                                <div className="text-xs font-black text-gray-400 uppercase mb-2">Trades Done</div>
+                                                <div className="text-3xl font-black font-cartoon">{backtestResult.totalTrades}</div>
+                                            </div>
+                                            <div className="p-6 bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-3xl">
+                                                <div className="text-xs font-black text-gray-400 uppercase mb-2">Unrealized PnL</div>
+                                                <div className="text-3xl font-black font-cartoon">${backtestResult.unrealizedPnl}</div>
+                                            </div>
+                                            <div className="p-6 bg-[#f8fafc] border-[3px] border-[#1a1a1a] rounded-3xl">
+                                                <div className="text-xs font-black text-gray-400 uppercase mb-2">Period</div>
+                                                <div className="text-3xl font-black font-cartoon">{backtestResult.period}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-12 p-8 bg-[#fdf6ff] border-[3px] border-[#1a1a1a] rounded-[2.5rem] relative">
+                                            <div className="w-12 h-12 bg-[#8B5CF6] text-white rounded-2xl border-[3px] border-[#1a1a1a] flex items-center justify-center absolute -top-6 left-1/2 -translate-x-1/2 shadow-[4px_4px_0px_#1a1a1a]">
+                                                <Bot />
+                                            </div>
+                                            <p className="text-xl font-bold italic text-[#1a1a1a]">
+                                                "If you had deployed this robot {backtestResult.period} ago, you would have earned a total of <span className="text-[#10B981] underline underline-offset-4 decoration-4">${backtestResult.totalProfit}</span>! This bot is a real treasure hunter! 🏴‍☠️"
+                                            </p>
+                                        </div>
+                                    </section>
+
+                                    {/* Trade List History */}
+                                    <section className="bubbly-card bg-white overflow-hidden relative">
+                                        <div className="p-8 border-b-[3px] border-[#1a1a1a] bg-[#f8fafc]">
+                                            <h3 className="text-2xl font-black text-[#1a1a1a] font-cartoon">Simulated Trade History</h3>
+                                        </div>
+                                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-gray-50 border-b-[3px] border-[#1a1a1a] text-xs font-black text-gray-400 uppercase">
+                                                    <tr>
+                                                        <th className="py-5 px-10">Type</th>
+                                                        <th className="py-5 px-10">Price</th>
+                                                        <th className="py-5 px-10">Details</th>
+                                                        <th className="py-5 px-10 text-right">Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y-[3px] divide-gray-100">
+                                                    {backtestResult.trades.map((trade: any, idx: number) => (
+                                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                                            <td className="py-6 px-10">
+                                                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border-[2px] border-[#1a1a1a] ${trade.type === 'BUY' ? 'bg-[#33D1FF] text-white' : 'bg-[#FFD700] text-[#1a1a1a]'}`}>
+                                                                    {trade.type}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-6 px-10 font-cartoon text-lg">
+                                                                ${parseFloat(trade.price).toFixed(2)}
+                                                            </td>
+                                                            <td className="py-6 px-10 font-bold text-sm">
+                                                                {trade.type === 'BUY' ? `Caught -${trade.drop}% Dip` : `Profit: +${trade.profit}% (+$${trade.pnl})`}
+                                                            </td>
+                                                            <td className="py-6 px-10 text-right text-xs text-gray-400 font-black">
+                                                                {new Date(trade.timestamp).toLocaleString()}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
+                                </motion.div>
+                            )}
                         </div>
                     )}
 
